@@ -2,6 +2,7 @@ import org.scalajs.dom
 import org.scalajs.dom.html.Canvas
 import org.scalajs.dom.raw.ImageData
 
+import scala.collection.mutable
 import scala.scalajs.js.annotation.{JSExport, JSExportTopLevel}
 
 @JSExportTopLevel("BacteriaSimulation")
@@ -9,11 +10,15 @@ object BacteriaSimulation {
 
   import DifferentialEquations._
 
-  val canvasWidth = 2000
-  val canvasHeight = 200
+  val width = 1000
+
+  val petriDishHeight = 500
+  val levelViewerHeight = 500
 
   val delta = 0.01
   val totalTimeSteps = 100000
+
+  val showYLevel = true
 
   val constants = Constants(
     A_max = 1,
@@ -41,6 +46,11 @@ object BacteriaSimulation {
     K_C = 0.5
   )
 
+  val bacteriaRadiansPerTime = Math.PI / 5
+  val bacteriaMoveSpeed = 1
+  val maxTumbleTime = 10
+
+
 
   @JSExport
   def start(canvas: Canvas): Unit = {
@@ -48,24 +58,23 @@ object BacteriaSimulation {
     val ctx = canvas.getContext("2d")
       .asInstanceOf[dom.CanvasRenderingContext2D]
 
-    ctx.canvas.width = canvasWidth
-    ctx.canvas.height = canvasHeight
+    ctx.canvas.width = width
+    ctx.canvas.height = petriDishHeight + levelViewerHeight
 
-    def clamp(value: Double, max: Double): Double = if(value >= 0) value % max else value + max
-
-    def nutrientLevel(x: Double, y: Double): Double = x / canvasWidth * constants.C_max
+    def inputsAt(x: Double, y: Double): EnvironmentalInputs =
+      EnvironmentalInputs(x / width * constants.C_max)
 
     val nutrientBackground: ImageData = {
-      val data = ctx.createImageData(canvasWidth, canvasHeight)
+      val data = ctx.createImageData(width, petriDishHeight)
       def indexAt(x: Int, y: Int): Int =
-        (y * canvasWidth + x) * 4
+        (y * width + x) * 4
 
       for {
-        x <- 0 until canvasWidth
-        y <- 0 until canvasHeight
+        x <- 0 until width
+        y <- 0 until petriDishHeight
         pixelIndex = indexAt(x, y)
       } {
-        val level = ((1 - nutrientLevel(x, y)) * 200 + 50).toInt
+        val level = ((1 - inputsAt(x, y).C) * 200 + 50).toInt
         data.data.update(pixelIndex+0, level)
         data.data.update(pixelIndex+1, level)
         data.data.update(pixelIndex+2, level)
@@ -74,57 +83,11 @@ object BacteriaSimulation {
       data
     }
 
-    val bacteriaRadiansPerTime = Math.PI / 5
-    val bacteriaMoveSpeed = 1
-    val maxTumbleTime = 10
 
-    case class Bacteria(x: Double, y: Double, radians: Double, levels: DataPoint, currentlyTumbling: Boolean, timeUntilTumbleDone: Int) {
-
-      def updated(): Bacteria = {
-
-        val currentRate = rates(EnvironmentalInputs(nutrientLevel(x, y)), constants, levels)
-        val newLevels = nextDataPoint(levels, currentRate, delta)
-
-        var newCurrentlyTumbling = currentlyTumbling
-        var newTimeUntilTumbleDone = timeUntilTumbleDone
-
-        if(currentlyTumbling) {
-          newTimeUntilTumbleDone = timeUntilTumbleDone - 1
-          if(timeUntilTumbleDone < 0) {
-            newCurrentlyTumbling = false
-          }
-        }
-        else {
-          val probabilityOfTumbling = (levels.Y - 0.14) * 10
-          if(Math.random() < probabilityOfTumbling) {
-            newCurrentlyTumbling = true
-            newTimeUntilTumbleDone = (Math.random() * maxTumbleTime).toInt
-          }
-        }
-
-        val intermediateBacteria = copy(
-          levels = newLevels,
-          currentlyTumbling = newCurrentlyTumbling,
-          timeUntilTumbleDone = newTimeUntilTumbleDone
-        )
-
-        if(currentlyTumbling) {
-          intermediateBacteria.copy(
-            radians = radians + bacteriaRadiansPerTime
-          )
-        } else {
-          intermediateBacteria.copy(
-            x = x + Math.cos(radians) * bacteriaMoveSpeed,
-            y = clamp(y + Math.sin(radians) * bacteriaMoveSpeed, canvasHeight),
-          )
-        }
-      }
-
-    }
 
     def clear(): Unit = {
       ctx.fillStyle = "black"
-      ctx.fillRect(0, 0, canvasWidth, canvasHeight)
+      ctx.fillRect(0, 0, width, petriDishHeight + levelViewerHeight)
     }
 
     def drawBacteria(bacteria: Bacteria): Unit = {
@@ -132,7 +95,7 @@ object BacteriaSimulation {
       val bacteriaWidth: Double = 5.0
       val bacteriaLength: Double = 10.0
 
-      ctx.translate(bacteria.x, canvasHeight - bacteria.y)
+      ctx.translate(bacteria.x, petriDishHeight - bacteria.y)
       ctx.rotate(-(bacteria.radians + Math.PI / 2))
       ctx.fillRect(
         x = -bacteriaWidth / 2,
@@ -141,7 +104,7 @@ object BacteriaSimulation {
         h = bacteriaLength
       )
       ctx.rotate(bacteria.radians + Math.PI / 2)
-      ctx.translate(-bacteria.x, bacteria.y - canvasHeight)
+      ctx.translate(-bacteria.x, bacteria.y - petriDishHeight)
     }
 
     def drawNutrients(): Unit = {
@@ -149,10 +112,10 @@ object BacteriaSimulation {
     }
 
     var bacteriaModel = Bacteria(
-      x = canvasWidth.toDouble / 2,
-      y = canvasHeight.toDouble / 2,
+      x = width.toDouble / 2,
+      y = petriDishHeight.toDouble / 2,
       radians = Math.PI / 2,
-      levels = DataPoint(
+      levels = Levels(
         A = 0,
         Y = 0.151,
         B = 0,
@@ -163,12 +126,9 @@ object BacteriaSimulation {
       timeUntilTumbleDone = 0
     )
 
-    //WARM UP
-    (0 to 10000).foreach { _ =>
-      bacteriaModel = bacteriaModel.updated()
-    }
+    bacteriaModel = bacteriaModel.steadyState(inputsAt(bacteriaModel.x, bacteriaModel.y))
 
-    val n = 1000
+    val n = 1
 
     var colony: Array[Bacteria] = new Array[Bacteria](n)
     colony.indices.foreach(colony.update(_, bacteriaModel))
@@ -180,11 +140,43 @@ object BacteriaSimulation {
       }
     }
 
+    def updateColony() = {
+      colony = colony.map(b => b.updated(inputsAt(b.x, b.y)))
+    }
+
+    val levelsHistory = mutable.Queue[Levels]()
+    val levelsHistoryMax = (width.toDouble / 2).toInt
+
+    def updateHistory() = {
+      levelsHistory.enqueue(colony(0).levels)
+      println(colony(0).levels.Y)
+      if(levelsHistory.size > levelsHistoryMax)
+        levelsHistory.dequeue()
+    }
+
+    def drawHistory(min: Double, max: Double) = {
+      levelsHistory.zipWithIndex.foreach { case (level, i) =>
+        ctx.fillStyle = "white"
+        ctx.beginPath()
+        val effectiveValue = (level.Y - min) / (max - min)
+        ctx.arc(i, petriDishHeight + levelViewerHeight - effectiveValue * levelViewerHeight, 1, 0, Math.PI * 2)
+        ctx.fill()
+      }
+    }
+
     dom.window.setInterval(() => {
       clear()
-      colony = colony.map(_.updated())
+      updateColony()
       draw()
+      if(showYLevel) {
+        updateHistory()
+        drawHistory(0.140, 0.160)
+      }
     }, 10)
+
+
+
   }
+
 
 }

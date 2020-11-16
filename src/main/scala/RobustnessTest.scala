@@ -10,7 +10,7 @@ object RobustnessTest {
   import DifferentialEquations._
 
   val inputHistory = new ArrayBuffer[EnvironmentalInputs]()
-  val dataPointHistory = new ArrayBuffer[DataPoint]()
+  val dataPointHistory = new ArrayBuffer[Levels]()
   val rateHistory = new ArrayBuffer[Rates]()
 
   val delta = 0.001
@@ -42,7 +42,7 @@ object RobustnessTest {
     K_C = 0.5
   )
 
-  val initialPoint = DataPoint(
+  val initialPoint = Levels(
     A = 0,
     Y = 0,
     B = 0,

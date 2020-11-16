@@ -1,5 +1,3 @@
-import scala.collection.mutable.ArrayBuffer
-
 
 object DifferentialEquations {
 
@@ -7,7 +5,7 @@ object DifferentialEquations {
                                   C: Double
                                 )
 
-  case class DataPoint(
+  case class Levels(
                         A: Double,
                         Y: Double,
                         B: Double,
@@ -49,7 +47,7 @@ object DifferentialEquations {
                         K_C: Double
                       )
 
-  def rates(i: EnvironmentalInputs, c: Constants, l: DataPoint): Rates = {
+  def rates(i: EnvironmentalInputs, c: Constants, l: Levels): Rates = {
     import i._
     import l._
     import c._
@@ -63,8 +61,8 @@ object DifferentialEquations {
     )
   }
 
-  def nextDataPoint(lastDataPoint: DataPoint, rates: Rates, delta: Double): DataPoint =
-    DataPoint(
+  def nextDataPoint(lastDataPoint: Levels, rates: Rates, delta: Double): Levels =
+    Levels(
       A = lastDataPoint.A + rates.dAdt * delta,
       Y = lastDataPoint.Y + rates.dYdt * delta,
       B = lastDataPoint.B + rates.dBdt * delta,
