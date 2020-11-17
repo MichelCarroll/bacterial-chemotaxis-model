@@ -5,20 +5,20 @@ import org.scalajs.dom.raw.ImageData
 import scala.collection.mutable
 import scala.scalajs.js.annotation.{JSExport, JSExportTopLevel}
 
-@JSExportTopLevel("BacteriaSimulation")
-object BacteriaSimulation {
+@JSExportTopLevel("ColonySimulation")
+object ColonySimulation {
 
   import DifferentialEquations._
 
-  val width = 1000
+  val width = 1500
 
-  val petriDishHeight = 500
+  val petriDishHeight = 1000
   val levelViewerHeight = 500
 
   val delta = 0.01
   val totalTimeSteps = 100000
 
-  val showYLevel = true
+  val showYLevel = false
 
   val constants = Constants(
     A_max = 1,
@@ -46,11 +46,6 @@ object BacteriaSimulation {
     K_C = 0.5
   )
 
-  val bacteriaRadiansPerTime = Math.PI / 5
-  val bacteriaMoveSpeed = 1
-  val maxTumbleTime = 10
-
-
 
   @JSExport
   def start(canvas: Canvas): Unit = {
@@ -62,7 +57,7 @@ object BacteriaSimulation {
     ctx.canvas.height = petriDishHeight + levelViewerHeight
 
     def inputsAt(x: Double, y: Double): EnvironmentalInputs =
-      EnvironmentalInputs(x / width * constants.C_max)
+      EnvironmentalInputs(constants.C_max - Math.sqrt(Math.pow(x - width.toDouble / 2, 2) + Math.pow(y - petriDishHeight.toDouble / 2, 2)) * constants.C_max / (petriDishHeight.toDouble / 2))
 
     val nutrientBackground: ImageData = {
       val data = ctx.createImageData(width, petriDishHeight)
@@ -112,7 +107,7 @@ object BacteriaSimulation {
     }
 
     var bacteriaModel = Bacteria(
-      x = width.toDouble / 2,
+      x = width.toDouble / 4,
       y = petriDishHeight.toDouble / 2,
       radians = Math.PI / 2,
       levels = Levels(
@@ -123,15 +118,20 @@ object BacteriaSimulation {
         MMeActive = 0
       ),
       currentlyTumbling = false,
-      timeUntilTumbleDone = 0
+      timeUntilTumbleDone = 0,
+      constants = constants
     )
 
-    bacteriaModel = bacteriaModel.steadyState(inputsAt(bacteriaModel.x, bacteriaModel.y))
+    bacteriaModel = bacteriaModel.steadyState(inputsAt(bacteriaModel.x, bacteriaModel.y), delta)
 
-    val n = 1
+    val n = 1000
 
     var colony: Array[Bacteria] = new Array[Bacteria](n)
-    colony.indices.foreach(colony.update(_, bacteriaModel))
+    colony.indices.foreach(colony.update(_, bacteriaModel.copy(
+      x = width.toDouble * Math.random(),
+      y = petriDishHeight.toDouble * Math.random(),
+      radians = Math.PI * 2 * Math.random(),
+    )))
 
     def draw(): Unit = {
       drawNutrients()
@@ -141,7 +141,7 @@ object BacteriaSimulation {
     }
 
     def updateColony() = {
-      colony = colony.map(b => b.updated(inputsAt(b.x, b.y)))
+      colony = colony.map(b => b.updated(inputsAt(b.x, b.y), delta, width, petriDishHeight))
     }
 
     val levelsHistory = mutable.Queue[Levels]()
@@ -149,7 +149,6 @@ object BacteriaSimulation {
 
     def updateHistory() = {
       levelsHistory.enqueue(colony(0).levels)
-      println(colony(0).levels.Y)
       if(levelsHistory.size > levelsHistoryMax)
         levelsHistory.dequeue()
     }
