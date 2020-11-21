@@ -1,7 +1,5 @@
-Simple Scala.js Game Skeleton
------------------------------
+# Bacteria Chemotaxis Model
 
-To compile: `sbt ~fastOptJS`
+Programmed in Scala, transpiled into Javascript using Scala.js. 
 
-To run, open `target/scala-2.12/classes/index-dev.html` in your browser.
-# bacterial-chemotaxis-model
+To compile, run `sbt ~fastOptJS`
