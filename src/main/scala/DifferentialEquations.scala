@@ -25,8 +25,6 @@ object DifferentialEquations {
                         A_max: Double,
                         Y_max: Double,
                         B_max: Double,
-                        R: Double,
-                        M_max: Double,
                         C_max: Double,
                         P_max: Double,
 
@@ -34,7 +32,7 @@ object DifferentialEquations {
                         alpha_Y: Double,
                         alpha_Z: Double,
                         alpha_B: Double,
-                        beta: Double,
+                        alpha_Bp: Double,
                         alpha_M: Double,
                         alpha_R: Double,
                         alpha_1: Double,
@@ -53,10 +51,10 @@ object DifferentialEquations {
     import c._
 
     Rates(
-      dAdt = alpha_A * MMeActive * (A_max - A) / (K_A + (A_max - A)) - alpha_Y * A * (Y_max - Y) / (K_Y + (Y_max - Y)),
-      dYdt = alpha_Y * A * (Y_max - Y) / (K_Y + (Y_max - Y)) - alpha_Z * Y / (K_Z + Y),
-      dBdt = alpha_B * MMeActive * (B_max - B) / (K_B + (B_max - B)) - beta * B,
-      dMMedt = alpha_1 * C * MMeActive - alpha_2 * MMe + alpha_R * R,
+      dAdt = alpha_A * MMeActive * (A_max - A) / (K_A + (A_max - A)) - alpha_Y * A * (Y_max - Y),
+      dYdt = alpha_Y * A * (Y_max - Y) - alpha_Z * Y / (K_Z + Y),
+      dBdt = alpha_B * MMeActive * (B_max - B) / (K_B + (B_max - B)) - alpha_Bp * B,
+      dMMedt = alpha_1 * C * MMeActive - alpha_2 * MMe + alpha_R,
       dMMeActivedt = alpha_2 * MMe - alpha_1 * C * MMeActive - alpha_M * B * MMeActive / (K_C + MMeActive)
     )
   }

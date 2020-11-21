@@ -1,15 +1,33 @@
 import DifferentialEquations.{Constants, EnvironmentalInputs, Levels, nextDataPoint, rates}
 
-case class Bacteria(x: Double, y: Double, radians: Double, levels: Levels, currentlyTumbling: Boolean, constants: Constants, timeUntilTumbleDone: Int, accumulatedNutrients: Double = 0) {
+object Bacteria {
+
+  def steadyState(environmentalInputs: EnvironmentalInputs, delta: Double, x: Double, y: Double, radians: Double, levels: Levels, constants: Constants): Bacteria = {
+    var currentLevels = levels
+    (0 to 10000).foreach { _ =>
+      val currentRate = rates(environmentalInputs, constants, currentLevels)
+      currentLevels = nextDataPoint(currentLevels, currentRate, delta)
+    }
+
+    Bacteria(x = x, y = y, radians = radians, levels = currentLevels, currentlyTumbling = false, constants = constants, timeUntilTumbleDone = 0, steadyStateYLevel = currentLevels.Y)
+  }
+
+}
+
+case class Bacteria(x: Double, y: Double, radians: Double, levels: Levels, currentlyTumbling: Boolean, constants: Constants, timeUntilTumbleDone: Int, steadyStateYLevel: Double) {
 
   val bacteriaRadiansPerTime = Math.PI / 5
-  val bacteriaMoveSpeed = 1
+  val bacteriaMoveSpeed = 0.4
   val maxTumbleTime = 10
 
   def clamp(value: Double, max: Double): Double = if(value >= 0) value % max else value + max
 
-  def probabilityOfTumbling: Double = (levels.Y - 0.14) * 10
-//  def probabilityOfTumbling: Double = levels.Y
+  def probabilityOfTumbling: Double = {
+    val x = levels.Y - steadyStateYLevel
+    val b = -45
+    val a = -0.1
+    1 / (1 + Math.pow(Math.E, b * (x + a)))
+  }
 
   def steadyState(environmentalInputs: EnvironmentalInputs, delta: Double): Bacteria = {
     var currentLevels = levels
@@ -44,8 +62,7 @@ case class Bacteria(x: Double, y: Double, radians: Double, levels: Levels, curre
     val intermediateBacteria = copy(
       levels = newLevels,
       currentlyTumbling = newCurrentlyTumbling,
-      timeUntilTumbleDone = newTimeUntilTumbleDone,
-      accumulatedNutrients = accumulatedNutrients + environmentalInputs.C
+      timeUntilTumbleDone = newTimeUntilTumbleDone
     )
 
     if(currentlyTumbling) {

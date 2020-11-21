@@ -10,22 +10,18 @@ object ColonySimulation {
 
   import DifferentialEquations._
 
-  val width = 1500
+  val width = 500
 
-  val petriDishHeight = 1000
-  val levelViewerHeight = 500
+  val petriDishHeight = 500
+  val levelViewerHeight = 200
 
   val delta = 0.01
   val totalTimeSteps = 100000
-
-  val showYLevel = false
 
   val constants = Constants(
     A_max = 1,
     Y_max = 1,
     B_max = 1,
-    R = 1,
-    M_max = 1,
     C_max = 1,
     P_max = 1,
 
@@ -33,7 +29,7 @@ object ColonySimulation {
     alpha_Y = 10,
     alpha_Z = 10,
     alpha_B = 1,
-    beta = 0.5,
+    alpha_Bp = 0.5,
     alpha_M = 0.5,
     alpha_R = 0.1,
     alpha_1 = 100,
@@ -48,7 +44,7 @@ object ColonySimulation {
 
 
   @JSExport
-  def start(canvas: Canvas): Unit = {
+  def start(canvas: Canvas, n: Int, showYLevel: Boolean): Unit = {
 
     val ctx = canvas.getContext("2d")
       .asInstanceOf[dom.CanvasRenderingContext2D]
@@ -57,7 +53,7 @@ object ColonySimulation {
     ctx.canvas.height = petriDishHeight + levelViewerHeight
 
     def inputsAt(x: Double, y: Double): EnvironmentalInputs =
-      EnvironmentalInputs(constants.C_max - Math.sqrt(Math.pow(x - width.toDouble / 2, 2) + Math.pow(y - petriDishHeight.toDouble / 2, 2)) * constants.C_max / (petriDishHeight.toDouble / 2))
+      EnvironmentalInputs(Math.max(0, constants.C_max - Math.pow(Math.sqrt(Math.pow(x - width.toDouble / 2, 2) + Math.pow(y - petriDishHeight.toDouble / 2, 2)) * constants.C_max / (petriDishHeight.toDouble / 2), 2)))
 
     val nutrientBackground: ImageData = {
       val data = ctx.createImageData(width, petriDishHeight)
@@ -87,8 +83,8 @@ object ColonySimulation {
 
     def drawBacteria(bacteria: Bacteria): Unit = {
       ctx.fillStyle = "red"
-      val bacteriaWidth: Double = 5.0
-      val bacteriaLength: Double = 10.0
+      val bacteriaWidth: Double = 2.0
+      val bacteriaLength: Double = 5.0
 
       ctx.translate(bacteria.x, petriDishHeight - bacteria.y)
       ctx.rotate(-(bacteria.radians + Math.PI / 2))
@@ -106,32 +102,27 @@ object ColonySimulation {
       ctx.putImageData(nutrientBackground, 0, 0)
     }
 
-    var bacteriaModel = Bacteria(
-      x = width.toDouble / 4,
-      y = petriDishHeight.toDouble / 2,
-      radians = Math.PI / 2,
-      levels = Levels(
-        A = 0,
-        Y = 0.151,
-        B = 0,
-        MMe = 0,
-        MMeActive = 0
-      ),
-      currentlyTumbling = false,
-      timeUntilTumbleDone = 0,
-      constants = constants
-    )
-
-    bacteriaModel = bacteriaModel.steadyState(inputsAt(bacteriaModel.x, bacteriaModel.y), delta)
-
-    val n = 1000
-
     var colony: Array[Bacteria] = new Array[Bacteria](n)
-    colony.indices.foreach(colony.update(_, bacteriaModel.copy(
-      x = width.toDouble * Math.random(),
-      y = petriDishHeight.toDouble * Math.random(),
-      radians = Math.PI * 2 * Math.random(),
-    )))
+    (0 until n).foreach { i =>
+      val x = width.toDouble * Math.random()
+      val y = petriDishHeight.toDouble * Math.random()
+
+      colony.update(i, Bacteria.steadyState(
+        x = x,
+        y = y,
+        radians = Math.PI * 2 * Math.random(),
+        levels = Levels(
+          A = 0,
+          Y = 0.151,
+          B = 0,
+          MMe = 0,
+          MMeActive = 0
+        ),
+        constants = constants,
+        environmentalInputs = inputsAt(x, y),
+        delta = delta
+      ))
+    }
 
     def draw(): Unit = {
       drawNutrients()
@@ -169,10 +160,10 @@ object ColonySimulation {
       draw()
       if(showYLevel) {
         updateHistory()
-        drawHistory(0.140, 0.160)
+        drawHistory(0.05, 0.30)
+
       }
     }, 10)
-
 
 
   }

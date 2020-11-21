@@ -20,19 +20,17 @@ object RobustnessTest {
     A_max = 1,
     Y_max = 1,
     B_max = 1,
-    R = 1,
-    M_max = 1,
     C_max = 1,
     P_max = 1,
 
     alpha_A = 10,
     alpha_Y = 10,
     alpha_Z = 10,
-    alpha_B = 1,
-    beta = 0.5,
-    alpha_M = 0.5,
+    alpha_B = 10,
+    alpha_Bp = 10,
+    alpha_M = 1,
     alpha_R = 0.1,
-    alpha_1 = 100,
+    alpha_1 = 200,
     alpha_2 = 100,
 
     K_A = 0.5,
@@ -56,19 +54,19 @@ object RobustnessTest {
 
   inputHistory.append(EnvironmentalInputs(0))
 
-  def testScenario() = {
+  def testScenario1() = {
     (1 until totalTimeSteps).foreach { t =>
       val lastPoint = dataPointHistory(t-1)
       val timePerc = t.toDouble/totalTimeSteps
       val inputs = timePerc match {
         case z if z < 1.0/4 =>
-          EnvironmentalInputs(0.2)
+          EnvironmentalInputs(0.1)
         case z if z < 2.0/4 =>
-          EnvironmentalInputs(0.8)
+          EnvironmentalInputs(0.4)
         case z if z < 3.0/4 =>
-          EnvironmentalInputs(0.5)
+          EnvironmentalInputs(0.1)
         case _ =>
-          EnvironmentalInputs(0.9)
+          EnvironmentalInputs(0.4)
       }
       val currentRate = rates(inputs, constants, lastPoint)
       val currentDataPoint = nextDataPoint(lastPoint, currentRate, delta)
@@ -79,7 +77,31 @@ object RobustnessTest {
     }
   }
 
-  testScenario()
+  def testScenario2() = {
+    (1 until totalTimeSteps).foreach { t =>
+      val lastPoint = dataPointHistory(t-1)
+      val timePerc = t.toDouble/totalTimeSteps
+      val inputs = timePerc match {
+        case z if z < 1.0/4 =>
+          EnvironmentalInputs(0.1)
+        case z if z < 2.0/4 =>
+          EnvironmentalInputs((timePerc - 0.25) * 4 * 0.4 + 0.1)
+        case z if z < 3.0/4 =>
+          EnvironmentalInputs(0.5 - (timePerc - 0.5) * 4 * 0.4)
+        case _ =>
+          EnvironmentalInputs(0.1)
+      }
+      val currentRate = rates(inputs, constants, lastPoint)
+      val currentDataPoint = nextDataPoint(lastPoint, currentRate, delta)
+
+      inputHistory.append(inputs)
+      rateHistory.append(currentRate)
+      dataPointHistory.append(currentDataPoint)
+    }
+  }
+
+  testScenario1()
+
 //  println(inputHistory)
 
   @JSExport
@@ -95,7 +117,7 @@ object RobustnessTest {
     ctx.canvas.height = canvasHeight
 
     def clear(): Unit = {
-      ctx.fillStyle = "black"
+      ctx.fillStyle = "white"
       ctx.fillRect(0, 0, canvasWidth, canvasHeight)
     }
 
@@ -105,12 +127,12 @@ object RobustnessTest {
 
         val inputs = inputHistory(t)
 
-        def drawPoint(value: Double, max: Double, color: String): Unit = {
+        def drawPoint(value: Double, max: Double, color: String, width: Int = 1): Unit = {
           val xPos = (t.toDouble / totalTimeSteps) * canvasWidth
           val yPos = canvasHeight - ((value / max) * canvasHeight)
           ctx.fillStyle = color
           ctx.beginPath()
-          ctx.arc(xPos, yPos, 1, 0, Math.PI)
+          ctx.arc(xPos, yPos, width, 0, Math.PI)
           ctx.fill()
         }
 
@@ -118,13 +140,12 @@ object RobustnessTest {
         import constants._
         import inputs._
 
-        drawPoint(A, A_max, "red")
-        drawPoint(Y, Y_max, "yellow")
-        drawPoint(B, B_max, "blue")
-        drawPoint(MMe, M_max, "pink")
-        drawPoint(MMeActive, M_max, "cyan")
-        drawPoint(C, C_max, "white")
-
+        drawPoint(A, A_max/2, "red")
+        drawPoint(Y, Y_max/2, "black", 2)
+        drawPoint(B, B_max/2, "blue")
+        drawPoint(MMe, 1.0/2, "green")
+        drawPoint(MMeActive, 1.0/2, "cyan")
+        drawPoint(C, C_max/2, "orange", 2)
       }
     }
 
